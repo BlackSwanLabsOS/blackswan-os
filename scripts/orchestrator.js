@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 /**
- * Orchestrator pełnej lokalnej symulacji sporu BlackSwanOS.
+ * Orchestrator for the full local BlackSwanOS dispute simulation.
  *
  *   node scripts/orchestrator.js
  *
- * Co robi automatycznie:
- *   1. Sprawdza, czy lokalny węzeł Hardhat (127.0.0.1:8545) już działa.
- *      Jeśli nie — startuje `npx hardhat node --fork <Base RPC>`.
- *   2. Wdraża świeży kontrakt BlackSwanOS (scripts/deploy.js) i zapisuje
- *      jego adres do deployment.json + wszystkich plików .env serwisów.
- *   3. Startuje wyrocznię (watcher.js) w tle, żeby nasłuchiwała zdarzeń.
- *   4. Odpala pełną symulację sporu (simulate.js): zastrzyk USDC ->
+ * Automatically:
+ *   1. Checks whether the local Hardhat node (127.0.0.1:8545) is already running.
+ *      If not — starts `npx hardhat node --fork <Base RPC>`.
+ *   2. Deploys a fresh BlackSwanOS contract (scripts/deploy.js) and writes its
+ *      address to deployment.json and all service .env files.
+ *   3. Starts the oracle (watcher.js) in the background to listen for events.
+ *   4. Runs the full dispute simulation (simulate.js): USDC injection ->
  *      approve -> createEscrow -> sellerLock -> raiseDispute.
- *   5. Zostawia węzeł + wyrocznię działające, żeby widzieć zdarzenia na
- *      żywo. Ctrl+C zamyka wszystko czysto (węzeł Hardhat + watcher).
+ *   5. Leaves the node and oracle running so you can watch live events. Ctrl+C
+ *      shuts everything down cleanly (Hardhat node + watcher).
  *
- * Zmienne środowiskowe (opcjonalne):
- *   RPC_URL  - domyślnie http://127.0.0.1:8545
- *   FORK_URL - domyślnie https://mainnet.base.org
+ * Environment variables (optional):
+ *   RPC_URL  - default http://127.0.0.1:8545
+ *   FORK_URL - default https://mainnet.base.org
  */
 
 const { spawn } = require("node:child_process");
@@ -76,38 +76,38 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitFor(conditionFn, { intervalMs = 500, timeoutMs = 90000, label = "warunek" } = {}) {
+async function waitFor(conditionFn, { intervalMs = 500, timeoutMs = 90000, label = "condition" } = {}) {
     const start = Date.now();
     while (!(await conditionFn())) {
         if (Date.now() - start > timeoutMs) {
-            throw new Error(`⏱️  Przekroczono czas oczekiwania na: ${label}`);
+            throw new Error(`⏱️  Timed out waiting for: ${label}`);
         }
         await sleep(intervalMs);
     }
 }
 
-/** Odpala proces, czeka na jego zakończenie i rzuca błąd przy exit code != 0. */
+/** Run a process, wait for exit, throw if exit code != 0. */
 function runToCompletion(args, tag) {
     return new Promise((resolve, reject) => {
         log(tag, `npx ${args.join(" ")}`);
         const child = spawn("npx", args, { cwd: ROOT_DIR, stdio: "inherit", shell: true });
         child.on("exit", (code) => {
             if (code === 0) resolve();
-            else reject(new Error(`Proces "${tag}" zakończył się kodem ${code}`));
+            else reject(new Error(`Process "${tag}" exited with code ${code}`));
         });
         child.on("error", reject);
     });
 }
 
-/** Odpala proces w tle (np. węzeł Hardhat, wyrocznia) i zwraca uchwyt do niego. */
+/** Run a process in the background (e.g. Hardhat node, oracle) and return its handle. */
 function spawnBackground(args, tag) {
-    log(tag, `(tło) npx ${args.join(" ")}`);
+    log(tag, `(background) npx ${args.join(" ")}`);
     const child = spawn("npx", args, { cwd: ROOT_DIR, stdio: "inherit", shell: true });
     child.tag = tag;
     children.push(child);
     child.on("exit", (code) => {
         if (!shuttingDown && code !== 0 && code !== null) {
-            log(tag, `⚠️  proces w tle zakończył się nieoczekiwanie (kod ${code})`);
+            log(tag, `⚠️  background process exited unexpectedly (code ${code})`);
         }
     });
     return child;
@@ -118,7 +118,7 @@ function cleanup() {
     shuttingDown = true;
     for (const child of children) {
         if (child.killed || child.exitCode !== null) continue;
-        log(child.tag ?? "proc", "🧹 zatrzymuję...");
+        log(child.tag ?? "proc", "🧹 stopping...");
         try {
             if (process.platform === "win32") {
                 spawn("taskkill", ["/pid", String(child.pid), "/f", "/t"], { stdio: "ignore" });
@@ -141,48 +141,46 @@ process.on("SIGTERM", () => {
 });
 
 async function main() {
-    log("orchestrator", "🔎 Sprawdzam, czy lokalny węzeł Hardhat już działa...");
+    log("orchestrator", "🔎 Checking whether the local Hardhat node is already running...");
     const nodeAlreadyRunning = await isNodeUp();
 
     if (!nodeAlreadyRunning) {
-        log("orchestrator", `🟢 Startuję węzeł Hardhat (fork: ${FORK_URL})...`);
+        log("orchestrator", `🟢 Starting Hardhat node (fork: ${FORK_URL})...`);
         spawnBackground(["hardhat", "node", "--fork", FORK_URL], "hardhat-node");
-        await waitFor(isNodeUp, { timeoutMs: 90000, label: "start węzła Hardhat" });
-        log("orchestrator", "✅ Węzeł Hardhat wystartował i odpowiada na " + RPC_URL);
+        await waitFor(isNodeUp, { timeoutMs: 90000, label: "Hardhat node startup" });
+        log("orchestrator", "✅ Hardhat node is up and responding at " + RPC_URL);
     } else {
-        log("orchestrator", `✅ Węzeł Hardhat już działa na ${RPC_URL} — używam go.`);
+        log("orchestrator", `✅ Hardhat node already running at ${RPC_URL} — reusing it.`);
     }
 
-    log("orchestrator", "🚀 Wdrażam świeży kontrakt BlackSwanOS (scripts/deploy.js)...");
+    log("orchestrator", "🚀 Deploying fresh BlackSwanOS (scripts/deploy.js)...");
     await runToCompletion(["hardhat", "run", "scripts/deploy.js", "--network", "localhost"], "deploy");
 
-    log("orchestrator", "👀 Startuję wyrocznię (watcher.js) w tle, żeby nasłuchiwała zdarzeń...");
+    log("orchestrator", "👀 Starting oracle (watcher.js) in the background to listen for events...");
     spawnBackground(["hardhat", "run", "watcher.js", "--network", "localhost"], "watcher");
 
-    // Krótka pauza, żeby watcher.js na pewno zdążył zarejestrować listenery
-    // zanim simulate.js wygeneruje zdarzenia.
+    // Short pause so watcher.js can register listeners before simulate.js emits events.
     await sleep(2500);
 
-    log("orchestrator", "🧪 Odpalam pełną symulację sporu (simulate.js)...");
+    log("orchestrator", "🧪 Running full dispute simulation (simulate.js)...");
     await runToCompletion(["hardhat", "run", "simulate.js", "--network", "localhost"], "simulate");
 
-    // simulate.js wysyła 3 transakcje w ciągu 1-2 sekund, ale watcher.js
-    // wykrywa zdarzenia przez polling RPC (co ~1s) i dopiero PO wykryciu
-    // wysyła wiadomość na Telegram (kolejne ~1s). Bez tej pauzy orchestrator
-    // kończy się i zachęca do Ctrl+C zanim alerty dla SellerLocked i
-    // DisputeRaised zdążą wyjść — w efekcie widać tylko część wiadomości
-    // na Telegramie (albo żadnej dla sporu).
-    log("orchestrator", "⏳ Czekam, aż wyrocznia dogoni i wyśle wszystkie alerty na Telegram (10s)...");
+    // simulate.js sends 3 transactions within 1–2 seconds, but watcher.js
+    // detects events via RPC polling (~every 1s) and only then sends Telegram
+    // (~another 1s). Without this pause the orchestrator finishes and prompts
+    // Ctrl+C before SellerLocked and DisputeRaised alerts go out — you may only
+    // see part of the Telegram messages (or none for the dispute).
+    log("orchestrator", "⏳ Waiting for the oracle to catch up and send all Telegram alerts (10s)...");
     await sleep(10000);
 
     log(
         "orchestrator",
-        "🎉 Symulacja zakończona sukcesem! Wszystkie alerty (EscrowCreated, SellerLocked, DisputeRaised) powinny być już na Telegramie. Wyrocznia (watcher.js) nasłuchuje dalej — Ctrl+C, aby zakończyć wszystko."
+        "🎉 Simulation finished successfully! All alerts (EscrowCreated, SellerLocked, DisputeRaised) should be on Telegram. Oracle (watcher.js) keeps listening — Ctrl+C to shut everything down."
     );
 }
 
 main().catch((error) => {
-    console.error("❌ Orchestrator zakończony błędem:", error.message ?? error);
+    console.error("❌ Orchestrator failed:", error.message ?? error);
     cleanup();
     process.exit(1);
 });

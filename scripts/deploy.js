@@ -1,20 +1,20 @@
 /**
- * Deploy BlackSwanOS — działa zarówno lokalnie, jak i na sieciach publicznych.
+ * Deploy BlackSwanOS — works locally and on public networks.
  *
- *   npx hardhat run scripts/deploy.js --network localhost     (dev lokalny)
+ *   npx hardhat run scripts/deploy.js --network localhost     (local dev)
  *   npx hardhat run scripts/deploy.js --network baseSepolia   (testnet)
  *
- * Po wdrożeniu:
- *   - zapisuje świeży adres kontraktu do deployment.json (repo root),
- *   - automatycznie aktualizuje CONTRACT_ADDRESS / USDC_ADDRESS we
- *     wszystkich plikach .env serwisów (root, mcp_server, oracle),
- *   - dzięki temu simulate.js, watcher.js, mcp_server i oracle NIGDY więcej
- *     nie wymagają ręcznego wklejania adresu,
- *   - NA SIECIACH PUBLICZNYCH (nie `hardhat`/`localhost`): czeka
- *     `VERIFY_CONFIRMATIONS` (domyślnie 6) bloków potwierdzeń, po czym
- *     automatycznie weryfikuje kod źródłowy na BaseScan (wymaga
- *     `BASESCAN_API_KEY` w .env — bez niego weryfikacja jest pomijana,
- *     bez przerywania deployu).
+ * After deploy:
+ *   - writes the new contract address to deployment.json (repo root),
+ *   - automatically updates CONTRACT_ADDRESS / USDC_ADDRESS in all service
+ *     .env files (root, mcp_server, oracle),
+ *   - so simulate.js, watcher.js, mcp_server, and oracle no longer require
+ *     manual address paste,
+ *   - ON PUBLIC NETWORKS (not `hardhat`/`localhost`): waits
+ *     `VERIFY_CONFIRMATIONS` (default 6) block confirmations, then
+ *     automatically verifies source on BaseScan (requires
+ *     `BASESCAN_API_KEY` in .env — if missing, verification is skipped
+ *     without aborting deploy).
  */
 
 const hre = require("hardhat");
@@ -28,9 +28,9 @@ const {
   writeDeploymentFile,
 } = require("./deployment");
 
-/** Sieci lokalne/efemeryczne — bez sensu czekać na potwierdzenia ani weryfikować kod na eksploratorze. */
+/** Local/ephemeral networks — no need to wait for confirmations or verify on an explorer. */
 const LOCAL_NETWORKS = new Set(["hardhat", "localhost"]);
-/** Ile bloków potwierdzeń czekamy na sieciach PUBLICZNYCH przed weryfikacją (BaseScan indeksuje z opóźnieniem). */
+/** Block confirmations to wait on PUBLIC networks before verification (BaseScan indexes with delay). */
 const VERIFY_CONFIRMATIONS = Number(process.env.VERIFY_CONFIRMATIONS || 6);
 
 const ENV_FILES_TO_SYNC = [
@@ -44,8 +44,7 @@ function replaceOrAppendEnvVar(content, key, value) {
   if (re.test(content)) {
     return content.replace(re, `${key}=${value}`);
   }
-  // Klucz nie istnieje w tym pliku .env — nie dopisujemy niepotrzebnych
-  // zmiennych do serwisów, które go nie używają.
+  // Key does not exist in this .env — do not append vars services do not use.
   return content;
 }
 
@@ -67,11 +66,11 @@ function syncEnvFile(envPath, contractAddress, usdcAddress) {
 
   if (content !== before) {
     fs.writeFileSync(envPath, content);
-    console.log(`   ↳ zaktualizowano ${path.relative(ROOT_DIR, envPath)}`);
+    console.log(`   ↳ updated ${path.relative(ROOT_DIR, envPath)}`);
   }
 }
 
-/** Domyślny adres USDC zależny od sieci docelowej — nigdy nie mieszamy testowego USDC z mainnetowym przez przypadek. */
+/** Default USDC by target network — never mix testnet USDC with mainnet by accident. */
 function resolveDefaultUsdcAddress(networkName) {
   if (networkName === "baseSepolia") {
     return process.env.BASE_SEPOLIA_USDC_ADDRESS || DEFAULT_BASE_SEPOLIA_USDC_ADDRESS;
@@ -84,10 +83,10 @@ async function main() {
 
   const usdcAddress = process.env.USDC_ADDRESS || resolveDefaultUsdcAddress(network.name);
 
-  // Adres oracle na kontrakcie: jeśli w oracle/.env jest ustawiony
-  // ORACLE_PRIVATE_KEY (prawdziwy lokalny Python oracle), wyliczamy z niego
-  // adres automatycznie, żeby cały stos (oracle/main.py, admin_bot, mcp_server)
-  // od razu współpracował z nowo wdrożonym kontraktem bez ręcznej konfiguracji.
+  // Oracle address on the contract: if oracle/.env has ORACLE_PRIVATE_KEY
+  // (real local Python oracle), derive the address automatically so the full
+  // stack (oracle/main.py, admin_bot, mcp_server) works with the newly
+  // deployed contract without manual configuration.
   let oracleAddress = process.env.ORACLE_ADDRESS;
   if (!oracleAddress) {
     const oraclePrivateKey = readEnvValue(path.join(ROOT_DIR, "oracle", ".env"), "ORACLE_PRIVATE_KEY");
@@ -103,7 +102,7 @@ async function main() {
   const initialSystemFeeBps = BigInt(process.env.SYSTEM_FEE_BPS ?? "50");
   const initialArbitrationFee = BigInt(process.env.ARBITRATION_FEE ?? "0");
 
-  console.log("🚀 Wdrażam BlackSwanOS...");
+  console.log("🚀 Deploying BlackSwanOS...");
   console.log(`   network:   ${network.name}`);
   console.log(`   deployer:  ${deployer.address}`);
   console.log(`   usdc:      ${usdcAddress}`);
@@ -117,12 +116,12 @@ async function main() {
   await contract.waitForDeployment();
 
   const contractAddress = await contract.getAddress();
-  console.log(`✅ BlackSwanOS wdrożony na: ${contractAddress}`);
+  console.log(`✅ BlackSwanOS deployed at: ${contractAddress}`);
 
   const isLocalNetwork = LOCAL_NETWORKS.has(network.name);
 
   if (!isLocalNetwork) {
-    console.log(`⏳ Czekam na ${VERIFY_CONFIRMATIONS} potwierdzeń bloków przed weryfikacją na BaseScan...`);
+    console.log(`⏳ Waiting for ${VERIFY_CONFIRMATIONS} block confirmations before BaseScan verification...`);
     await contract.deploymentTransaction().wait(VERIFY_CONFIRMATIONS);
   }
 
@@ -137,9 +136,9 @@ async function main() {
   };
 
   writeDeploymentFile(deploymentInfo);
-  console.log("📝 Zapisano deployment.json");
+  console.log("📝 Wrote deployment.json");
 
-  console.log("🔄 Synchronizuję adres kontraktu w plikach .env...");
+  console.log("🔄 Syncing contract address in .env files...");
   for (const envPath of ENV_FILES_TO_SYNC) {
     syncEnvFile(envPath, contractAddress, usdcAddress);
   }
@@ -152,40 +151,40 @@ async function main() {
 }
 
 /**
- * Programowa weryfikacja kodu źródłowego na BaseScan przez
- * `@nomicfoundation/hardhat-verify` (task `verify:verify`, patrz
- * hardhat.config.js -> `etherscan`). Od migracji na Etherscan API V2, plugin
- * łączy się z ujednoliconym endpointem (api.etherscan.io/v2/api?chainid=...)
- * i dopasowuje sieć po realnym chainId z RPC — `base`/`baseSepolia` mają to
- * WBUDOWANE w plugin, więc nie potrzeba już własnych `customChains`.
- * Best-effort: łapiemy błędy zamiast wywalać cały deploy — najczęstsze
- * przyczyny (kontrakt jeszcze nie zaindeksowany, już zweryfikowany
- * wcześniej, brak/zły BASESCAN_API_KEY) i tak wymagają ręcznej interwencji,
- * nie powinny cofać udanego deployu.
+ * Programmatic source verification on BaseScan via
+ * `@nomicfoundation/hardhat-verify` (task `verify:verify`, see
+ * hardhat.config.js -> `etherscan`). After the Etherscan API V2 migration, the
+ * plugin uses the unified endpoint (api.etherscan.io/v2/api?chainid=...) and
+ * matches the network by real chainId from RPC — `base`/`baseSepolia` are
+ * BUILT INTO the plugin, so custom `customChains` are no longer needed.
+ * Best-effort: catch errors instead of failing the whole deploy — common
+ * causes (contract not indexed yet, already verified, missing/wrong
+ * BASESCAN_API_KEY) still need manual follow-up and should not roll back a
+ * successful deploy.
  */
 async function verifyOnBlockExplorer(contractAddress, constructorArgs) {
   if (!process.env.BASESCAN_API_KEY && !process.env.ETHERSCAN_API_KEY) {
-    console.log("⚠️  Pomijam automatyczną weryfikację — brak BASESCAN_API_KEY/ETHERSCAN_API_KEY w .env.");
+    console.log("⚠️  Skipping automatic verification — BASESCAN_API_KEY/ETHERSCAN_API_KEY not set in .env.");
     return;
   }
 
-  console.log("🔍 Weryfikuję kod źródłowy na BaseScan...");
+  console.log("🔍 Verifying source on BaseScan...");
   try {
     await hre.run("verify:verify", {
       address: contractAddress,
       constructorArguments: constructorArgs,
     });
-    console.log("✅ Kontrakt zweryfikowany na BaseScan.");
+    console.log("✅ Contract verified on BaseScan.");
   } catch (err) {
     const message = String(err?.message || err);
     if (message.toLowerCase().includes("already verified")) {
-      console.log("ℹ️  Kontrakt był już zweryfikowany wcześniej.");
+      console.log("ℹ️  Contract was already verified.");
       return;
     }
     console.error(
-      "⚠️  Automatyczna weryfikacja nie powiodła się (deploy i tak jest OK — spróbuj ręcznie):\n" +
+      "⚠️  Automatic verification failed (deploy is still OK — try manually):\n" +
         `   npx hardhat verify --network ${network.name} ${contractAddress} ${constructorArgs.map(String).join(" ")}\n` +
-        `   Błąd: ${message}`
+        `   Error: ${message}`
     );
   }
 }
@@ -194,7 +193,7 @@ if (require.main === module) {
   main()
     .then(() => process.exit(0))
     .catch((error) => {
-      console.error("❌ Błąd podczas deployu:", error);
+      console.error("❌ Deploy error:", error);
       process.exit(1);
     });
 }

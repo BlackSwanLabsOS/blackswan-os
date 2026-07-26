@@ -491,41 +491,41 @@ async function main() {
 
   console.log(`
 ================================================================================
-CO ODCZYTAC Z LOGOW UVICORN / FastAPI PO TESCIE
+WHAT TO READ FROM UVICORN / FastAPI LOGS AFTER THE TEST
 ================================================================================
-Trzymaj terminal z "python main.py" otwarty podczas load testu. Szukaj:
+Keep the terminal running "python main.py" open during the load test. Look for:
 
 1) EVENT CATCH (listener -> SQLite PENDING)
    - "Event listener started at block ..."
    - "DisputeRaised escrow=... block=... tx=..."
    - "Escrow N marked PENDING after DisputeRaised"
-   Jesli tych linii jest wyraznie mniej niz ${LOAD_COUNT}, listener nie nadaza
-   za POLL_INTERVAL_SECONDS (domyslnie ~12s) albo RPC laguje.
+   If you see noticeably fewer of these lines than ${LOAD_COUNT}, the listener is
+   falling behind POLL_INTERVAL_SECONDS (default ~12s) or RPC is lagging.
 
 2) LLM / LM Studio
-   - "Escrow N LLM done in XXXms verdict=True/False"  <- czas samej Llamy
-   - bledy: connection refused :1234, timeout, HTTP 500 z LM Studio
-   - w LM Studio UI: kolejka requestow, VRAM / "out of memory"
+   - "Escrow N LLM done in XXXms verdict=True/False"  <- LLM latency alone
+   - errors: connection refused :1234, timeout, HTTP 500 from LM Studio
+   - in LM Studio UI: request queue, VRAM / "out of memory"
 
 3) SQLite / concurrency
    - "database is locked" / OperationalError
-   - wolne UPSERT przy rownoleglych POST-ach (WAL powinien to lagodzic)
+   - slow UPSERT under parallel POSTs (WAL should mitigate)
 
-4) HTTP warstwa Uvicorn
+4) Uvicorn HTTP layer
    - "POST /disputes/{id}/payload HTTP/1.1" 200 vs 500
-   - dlugie odstepy miedzy requestami = LLM saturacja (nie FastAPI)
+   - long gaps between requests = LLM saturation (not FastAPI)
 
 5) Chain finalize
-   - wyjatki z resolveDispute / gas / nonce w tracebackach
-   - jesli mid-test pojawia sie ponownie "Application startup complete",
-     proces Oracle padl (OOM / unhandled exception) i sie zrestartowal
+   - resolveDispute / gas / nonce exceptions in tracebacks
+   - if "Application startup complete" appears again mid-test, the Oracle process
+     crashed (OOM / unhandled exception) and restarted
 
-6) Telegram (opcjonalnie)
-   - przy payloadPrice >= HIGH_VALUE_THRESHOLD_USDC dostaniesz lawine alertow
-   - na czysty load test ustaw prog wysoko (np. 1000) albo PRICE_MAX_USDC=0.4
+6) Telegram (optional)
+   - with payloadPrice >= HIGH_VALUE_THRESHOLD_USDC you get a flood of alerts
+   - for a clean load test set the threshold high (e.g. 1000) or PRICE_MAX_USDC=0.4
 
-Porownaj avg LLM z tego podsumowania z liniami "LLM done in Xms" w Uvicorn —
-powinny sie zgadzac rzedu wielkosci.
+Compare avg LLM from this summary with "LLM done in Xms" lines in Uvicorn —
+they should be the same order of magnitude.
 ================================================================================
 `);
 

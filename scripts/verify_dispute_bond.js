@@ -559,7 +559,7 @@ async function scenarioOwnable2Step(ctx) {
 }
 
 async function main() {
-  console.log("🔎 Weryfikacja poprawki dispute-bond + fallback arbiter (in-process, no fork)...\n");
+  console.log("🔎 Verifying dispute-bond fix + fallback arbiter (in-process, no fork)...\n");
 
   let ctx = await deployFixture();
   await scenarioHappyPath(ctx);
@@ -585,12 +585,12 @@ async function main() {
   ctx = await deployFixture();
   await scenarioOwnable2Step(ctx);
 
-  console.log("\n🎉 WSZYSTKIE SCENARIUSZE PRZESZŁY. totalLockedFunds balansuje do jednostki w każdym przypadku.");
+  console.log("\n🎉 ALL SCENARIOS PASSED. totalLockedFunds balances to the unit in every case.");
 }
 
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("\n❌ WERYFIKACJA NIE POWIODŁA SIĘ:", error);
+    console.error("\n❌ VERIFICATION FAILED:", error);
     process.exit(1);
   });

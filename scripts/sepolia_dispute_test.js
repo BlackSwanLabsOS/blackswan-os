@@ -11,26 +11,25 @@
  * right there and hands control back to you, so you can manually drive the
  * Oracle side and watch it read the on-chain DISPUTED state for yourself.
  *
- * Przebieg:
- *   1. Buyer i Seller zatwierdzają (approve) testowe USDC — jak w smoke teście,
- *      PLUS Buyer zatwierdza dodatkowo kaucję za spór (dispute bond).
- *   2. Buyer woła createEscrow(...) z nową logiką cenowej/limitu 100 KB.
- *   3. Seller woła sellerLock(escrowId, payloadHash) — `payloadHash` jest
- *      SHA-256 PRAWDZIWEGO, poprawnego JSON payloadu (zapisanego też do
- *      pliku na dysku), nie losowego placeholdera — żeby Oracle miał
- *      faktycznie coś sensownego do zwalidowania (Steps 1-4 + LLM), a nie
- *      tylko odczytać status.
- *   4. Buyer OD RAZU woła raiseDispute(escrowId) — bez czekania.
- *   5. Skrypt SIĘ ZATRZYMUJE i wypisuje dokładne instrukcje: jak odpalić
- *      Python Oracle i jak wysłać mu ten sam payload do walidacji.
+ * Flow:
+ *   1. Buyer and Seller approve test USDC — as in the smoke test, PLUS Buyer
+ *      approves the dispute bond.
+ *   2. Buyer calls createEscrow(...) with the new pricing / 100 KB limit logic.
+ *   3. Seller calls sellerLock(escrowId, payloadHash) — `payloadHash` is the
+ *      SHA-256 of REAL, valid JSON payload (also written to disk), not a random
+ *      placeholder — so the Oracle has something meaningful to validate (Steps 1-4 + LLM),
+ *      not just read status.
+ *   4. Buyer immediately calls raiseDispute(escrowId) — no waiting.
+ *   5. Script STOPS and prints exact instructions: how to start the Python Oracle
+ *      and send it the same payload for validation.
  *
- * Wymagane zmienne środowiskowe: te same co sepolia_smoke_test.js
- *   (CONTRACT_ADDRESS/USDC_ADDRESS z deployment.json, SEPOLIA_BUYER_PRIVATE_KEY,
+ * Required environment variables: same as sepolia_smoke_test.js
+ *   (CONTRACT_ADDRESS/USDC_ADDRESS from deployment.json, SEPOLIA_BUYER_PRIVATE_KEY,
  *   SEPOLIA_SELLER_PRIVATE_KEY).
  *
- * Użycie:
+ * Usage:
  *   npx hardhat run scripts/sepolia_dispute_test.js --network baseSepolia
- *   (albo: npm run dispute:sepolia)
+ *   (or: npm run dispute:sepolia)
  */
 
 const { createHash } = require("node:crypto");
@@ -49,19 +48,19 @@ function requireEnv(key) {
   const value = process.env[key];
   if (!value) {
     throw new Error(
-      `❌ Brak wymaganej zmiennej środowiskowej ${key}. Zobacz sekcję ".env" w podsumowaniu wdrożenia.`
+      `❌ Missing required environment variable ${key}. See the ".env" section in the deploy summary.`
     );
   }
   return value;
 }
 
-/** Patrz identyczny komentarz w sepolia_smoke_test.js — normalizacja "0x" prefiksu. */
+/** Same as sepolia_smoke_test.js — normalize "0x" prefix. */
 function requirePrivateKey(key) {
   const raw = requireEnv(key);
   const normalized = raw.startsWith("0x") ? raw : `0x${raw}`;
   if (!/^0x[0-9a-fA-F]{64}$/.test(normalized)) {
     throw new Error(
-      `❌ ${key} nie wygląda na poprawny klucz prywatny (oczekiwano 0x + 64 znaki hex, ewentualnie same 64 znaki hex bez "0x").`
+      `❌ ${key} does not look like a valid private key (expected 0x + 64 hex chars, or 64 hex chars without "0x").`
     );
   }
   return normalized;
@@ -77,15 +76,14 @@ function explorerAddressUrl(chainId, address) {
   return `${base}/address/${address}#readContract`;
 }
 
-/** Wartości enuma `EscrowState` z BlackSwanOS.sol (musi się zgadzać z kontraktem). */
+/** `EscrowState` enum values from BlackSwanOS.sol (must match the contract). */
 const EscrowState = { AWAITING_SELLER: 0, LOCKED: 1, DISPUTED: 2, RESOLVED: 3, CLAIMED: 4 };
 
 /**
- * Patrz identyczny komentarz w sepolia_smoke_test.js: odczyt zaraz po
- * tx.wait() może trafić na "spóźniony" node publicznego RPC Base Sepolia
- * (load-balancowany, bez sticky session) i zwrócić stan sprzed transakcji.
- * Retry aż stan faktycznie dojdzie do oczekiwanej wartości, zamiast raportować
- * fałszywy fail na czysto poprawnej transakcji.
+ * Same as sepolia_smoke_test.js: a read right after tx.wait() may hit a stale
+ * Base Sepolia public RPC node (load-balanced, no sticky session) and return
+ * pre-transaction state. Retry until state reaches the expected value instead of
+ * reporting a false failure on a valid transaction.
  */
 async function waitForFreshEscrow(contract, escrowId, expectedState, { maxAttempts = 8, delayMs = 4000 } = {}) {
   let last = await contract.getEscrow(escrowId);
@@ -98,7 +96,7 @@ async function waitForFreshEscrow(contract, escrowId, expectedState, { maxAttemp
 }
 
 async function ensureApproval(usdc, wallet, contractAddress, requiredAmount, label, chainId) {
-  // Same "spóźniony node RPC bez sticky session" issue as `waitForFreshEscrow`
+  // Same "stale RPC node without sticky session" issue as `waitForFreshEscrow`
   // above: reading `allowance` immediately after a PRIOR transaction that
   // consumed it (e.g. `createEscrow`'s transferFrom) can hit a load-balanced
   // public RPC replica that hasn't caught up yet, returning the OLD
@@ -110,13 +108,13 @@ async function ensureApproval(usdc, wallet, contractAddress, requiredAmount, lab
   await new Promise((resolve) => setTimeout(resolve, 3000));
   const current = await usdc.allowance(wallet.address, contractAddress);
   if (current >= requiredAmount) {
-    console.log(`✅ ${label}: allowance już wystarczające (${ethers.formatUnits(current, 6)} USDC).`);
+    console.log(`✅ ${label}: allowance already sufficient (${ethers.formatUnits(current, 6)} USDC).`);
     return;
   }
-  console.log(`🔓 ${label}: wysyłam approve(${ethers.formatUnits(requiredAmount, 6)} USDC)...`);
+  console.log(`🔓 ${label}: sending approve(${ethers.formatUnits(requiredAmount, 6)} USDC)...`);
   const tx = await usdc.connect(wallet).approve(contractAddress, requiredAmount);
   const receipt = await tx.wait();
-  console.log(`   ↳ potwierdzone: ${explorerTxUrl(chainId, receipt.hash)}`);
+  console.log(`   ↳ confirmed: ${explorerTxUrl(chainId, receipt.hash)}`);
 }
 
 async function main() {
@@ -129,8 +127,8 @@ async function main() {
   const buyer = new ethers.Wallet(requirePrivateKey("SEPOLIA_BUYER_PRIVATE_KEY"), provider);
   const seller = new ethers.Wallet(requirePrivateKey("SEPOLIA_SELLER_PRIVATE_KEY"), provider);
 
-  console.log("⚔️  BlackSwanOS — test ścieżki SPORU (dispute path) na", network.name);
-  console.log(`   Kontrakt: ${contractAddress}`);
+  console.log("⚔️  BlackSwanOS — dispute path test on", network.name);
+  console.log(`   Contract: ${contractAddress}`);
   console.log(`   USDC:     ${usdcAddress}`);
   console.log(`   Buyer:    ${buyer.address}`);
   console.log(`   Seller:   ${seller.address}`);
@@ -150,7 +148,7 @@ async function main() {
     disputeBondBps,
     minDisputeBond,
   ] = await Promise.all([
-    contract.MAX_ALLOWED_FILE_SIZE(), // pełny sufit -> ćwiczymy też nową logikę cenową w createEscrow
+    contract.MAX_ALLOWED_FILE_SIZE(), // full ceiling -> also exercises new pricing logic in createEscrow
     contract.MIN_DISPUTE_WINDOW(),
     contract.systemFeeBps(),
     contract.COLLATERAL_BPS(),
@@ -162,8 +160,8 @@ async function main() {
   const minRequiredPrice = await contract.minRequiredPrice(maxFileSize);
   if (payloadPrice < minRequiredPrice) {
     throw new Error(
-      `❌ SMOKE_TEST_PAYLOAD_PRICE_USDC (${payloadPriceStr} USDC) jest poniżej minimalnej ceny dla ` +
-        `maxFileSize=${maxFileSize}: wymagane ${ethers.formatUnits(minRequiredPrice, 6)} USDC.`
+      `❌ SMOKE_TEST_PAYLOAD_PRICE_USDC (${payloadPriceStr} USDC) is below the minimum price for ` +
+        `maxFileSize=${maxFileSize}: required ${ethers.formatUnits(minRequiredPrice, 6)} USDC.`
     );
   }
 
@@ -173,40 +171,40 @@ async function main() {
   const percentageBond = (payloadPrice * disputeBondBps) / bpsDenominator;
   const disputeBond = percentageBond > minDisputeBond ? percentageBond : minDisputeBond;
 
-  console.log(`\n📋 Parametry testowego escrow:`);
+  console.log(`\n📋 Test escrow parameters:`);
   console.log(`   payloadPrice:      ${ethers.formatUnits(payloadPrice, 6)} USDC`);
-  console.log(`   maxFileSize:       ${maxFileSize.toString()} bajtów (MAX_ALLOWED_FILE_SIZE)`);
-  console.log(`   disputeWindow:     ${disputeWindow.toString()}s (MIN_DISPUTE_WINDOW) — NIE czekamy na niego w tym teście`);
-  console.log(`   systemFee:         ${ethers.formatUnits(systemFee, 6)} USDC (${Number(systemFeeBps) / 100}% z payloadPrice)`);
+  console.log(`   maxFileSize:       ${maxFileSize.toString()} bytes (MAX_ALLOWED_FILE_SIZE)`);
+  console.log(`   disputeWindow:     ${disputeWindow.toString()}s (MIN_DISPUTE_WINDOW) — not waited on in this test`);
+  console.log(`   systemFee:         ${ethers.formatUnits(systemFee, 6)} USDC (${Number(systemFeeBps) / 100}% of payloadPrice)`);
   console.log(`   buyerDeposit:      ${ethers.formatUnits(buyerDeposit, 6)} USDC (payloadPrice + systemFee)`);
   console.log(`   sellerCollateral:  ${ethers.formatUnits(sellerCollateral, 6)} USDC (200%)`);
   console.log(`   disputeBond:       ${ethers.formatUnits(disputeBond, 6)} USDC (hybrid: max(5%, min 0.20 USDC))`);
 
-  // --- Sprawdzenie sald PRZED zrobieniem czegokolwiek on-chain ------------
+  // --- Balance check BEFORE any on-chain action --------------------------------
   const [buyerBalance, sellerBalance] = await Promise.all([
     usdc.balanceOf(buyer.address),
     usdc.balanceOf(seller.address),
   ]);
-  const buyerTotalNeeded = buyerDeposit + disputeBond; // Buyer płaci depozyt ORAZ (w tym teście) kaucję za spór
+  const buyerTotalNeeded = buyerDeposit + disputeBond; // Buyer pays deposit AND (in this test) dispute bond
   if (buyerBalance < buyerTotalNeeded) {
     throw new Error(
-      `❌ Buyer (${buyer.address}) ma za mało testowego USDC: ${ethers.formatUnits(buyerBalance, 6)}, ` +
-        `potrzeba ${ethers.formatUnits(buyerTotalNeeded, 6)} (depozyt + kaucja za spór). ` +
-        `Doładuj z faucetu Circle: https://faucet.circle.com/`
+      `❌ Buyer (${buyer.address}) has insufficient test USDC: ${ethers.formatUnits(buyerBalance, 6)}, ` +
+        `need ${ethers.formatUnits(buyerTotalNeeded, 6)} (deposit + dispute bond). ` +
+        `Top up from Circle faucet: https://faucet.circle.com/`
     );
   }
   if (sellerBalance < sellerCollateral) {
     throw new Error(
-      `❌ Seller (${seller.address}) ma za mało testowego USDC: ${ethers.formatUnits(sellerBalance, 6)}, ` +
-        `potrzeba ${ethers.formatUnits(sellerCollateral, 6)}. Doładuj z faucetu Circle: https://faucet.circle.com/`
+      `❌ Seller (${seller.address}) has insufficient test USDC: ${ethers.formatUnits(sellerBalance, 6)}, ` +
+        `need ${ethers.formatUnits(sellerCollateral, 6)}. Top up from Circle faucet: https://faucet.circle.com/`
     );
   }
 
-  // --- Krok 1: approve -----------------------------------------------------
+  // --- Step 1: approve --------------------------------------------------------
   await ensureApproval(usdc, buyer, contractAddress, buyerDeposit, "Buyer (deposit)", chainId);
   await ensureApproval(usdc, seller, contractAddress, sellerCollateral, "Seller (collateral)", chainId);
 
-  // --- Krok 2: createEscrow ------------------------------------------------
+  // --- Step 2: createEscrow ---------------------------------------------------
   console.log("\n📦 Buyer: createEscrow(seller, payloadPrice, maxFileSize, disputeWindow)...");
   const createTx = await contract
     .connect(buyer)
@@ -214,13 +212,12 @@ async function main() {
   const createReceipt = await createTx.wait();
   console.log(`   ↳ tx: ${explorerTxUrl(chainId, createReceipt.hash)}`);
 
-  // Odczyt escrowId z EVENTU tej samej transakcji (100% pewne, z tego
-  // samego receipta) — NIE osobnym zapytaniem nextEscrowId() zaraz po
-  // tx.wait(), bo to może trafić na "spóźniony" node RPC (load-balancowany
-  // sepolia.base.org bez sticky session) i zwrócić escrowId JUŻ ZAJĘTY
-  // przez wcześniejszy test, prowadząc do rewertu w sellerLock/raiseDispute
-  // poniżej. Fallback na nextEscrowId() tylko jeśli parsowanie eventu
-  // zawiedzie (nie powinno, ale nie chcemy twardo się wywalić bez próby).
+  // Read escrowId from THIS transaction's event (certain, same receipt) — NOT a
+  // separate nextEscrowId() query right after tx.wait(), which may hit a stale RPC
+  // node (load-balanced sepolia.base.org without sticky session) and return an
+  // escrowId already used by a prior test, causing sellerLock/raiseDispute to revert
+  // below. Fallback to nextEscrowId() only if event parsing fails (should not, but
+  // we avoid hard failure without trying).
   const createdEvent = createReceipt.logs
     .map((log) => {
       try {
@@ -231,12 +228,12 @@ async function main() {
     })
     .find((parsed) => parsed?.name === "EscrowCreated");
   const escrowId = createdEvent ? createdEvent.args.escrowId : (await contract.nextEscrowId()) - 1n;
-  console.log(`✅ Escrow utworzony, ID = ${escrowId.toString()}`);
+  console.log(`✅ Escrow created, ID = ${escrowId.toString()}`);
 
-  // --- Krok 3: sellerLock z PRAWDZIWYM payloadem --------------------------
-  // Realny, poprawny JSON — nie ethers.id(losowy string) jak w smoke teście —
-  // żeby Oracle miał coś sensownego do zwalidowania (Steps 1-4 + LLM), a nie
-  // tylko odczytać status DISPUTED.
+  // --- Step 3: sellerLock with REAL payload -----------------------------------
+  // Real, valid JSON — not ethers.id(random string) as in the smoke test — so the
+  // Oracle has something meaningful to validate (Steps 1-4 + LLM), not just read
+  // DISPUTED status.
   const payloadObject = {
     dataset: "sepolia-dispute-test",
     escrowId: escrowId.toString(),
@@ -246,92 +243,89 @@ async function main() {
       { id: 2, label: "example-record-two", value: 7 },
     ],
   };
-  // JSON.stringify SANS indent — bajty które faktycznie hashujemy i wysyłamy
-  // muszą być identyczne z tym co zapisujemy do pliku i co Oracle zahashuje.
+  // JSON.stringify without indent — bytes we hash and send must match file contents
+  // and what the Oracle hashes.
   const payloadText = JSON.stringify(payloadObject);
   const payloadHash = `0x${createHash("sha256").update(payloadText, "utf-8").digest("hex")}`;
 
   const payloadFilePath = path.join(__dirname, "..", `dispute_test_payload_${escrowId}.json`);
-  fs.writeFileSync(payloadFilePath, payloadText); // BEZ końcowego "\n" — inaczej hash się rozjedzie
+  fs.writeFileSync(payloadFilePath, payloadText); // no trailing "\n" — otherwise hash diverges
 
   console.log("\n🔒 Seller: sellerLock(escrowId, payloadHash)...");
   console.log(`   payloadHash (SHA-256): ${payloadHash}`);
-  console.log(`   payload zapisany do:  ${payloadFilePath}`);
+  console.log(`   payload saved to:      ${payloadFilePath}`);
   const lockTx = await contract.connect(seller).sellerLock(escrowId, payloadHash);
   const lockReceipt = await lockTx.wait();
   console.log(`   ↳ tx: ${explorerTxUrl(chainId, lockReceipt.hash)}`);
 
-  // --- Krok 4: Buyer OD RAZU raiseDispute(escrowId) — bez czekania -------
+  // --- Step 4: Buyer raises dispute immediately — no waiting ------------------
   await ensureApproval(usdc, buyer, contractAddress, disputeBond, "Buyer (dispute bond)", chainId);
 
-  console.log("\n⚔️  Buyer: raiseDispute(escrowId) — OD RAZU, bez czekania na disputeWindow...");
+  console.log("\n⚔️  Buyer: raiseDispute(escrowId) — immediately, without waiting for disputeWindow...");
   const disputeTx = await contract.connect(buyer).raiseDispute(escrowId);
   const disputeReceipt = await disputeTx.wait();
   console.log(`   ↳ tx: ${explorerTxUrl(chainId, disputeReceipt.hash)}`);
 
-  console.log("   ↳ czekam na potwierdzenie świeżego odczytu stanu (RPC może być kilka sekund w tyle)...");
+  console.log("   ↳ waiting for fresh state read confirmation (RPC may lag a few seconds)...");
   const { escrow: finalEscrow, fresh } = await waitForFreshEscrow(contract, escrowId, EscrowState.DISPUTED);
   console.log(
-    `\n✅ Escrow ${escrowId} jest teraz w stanie: ${finalEscrow.state.toString()} (2 = DISPUTED)` +
-      (fresh ? "" : "  [ODCZYT MOŻE BYĆ STALE — sprawdź na Basescan]")
+    `\n✅ Escrow ${escrowId} is now in state: ${finalEscrow.state.toString()} (2 = DISPUTED)` +
+      (fresh ? "" : "  [READ MAY BE STALE — check Basescan]")
   );
 
-  // --- STOP. Piłka po Twojej stronie. -------------------------------------
+  // --- STOP. Manual steps follow. ---------------------------------------------
   console.log("\n" + "=".repeat(78));
-  console.log("🛑 SKRYPT ZATRZYMANY — spór jest na chainie, teraz Twoja kolej.");
+  console.log("🛑 SCRIPT PAUSED — dispute is on-chain; continue manually.");
   console.log("=".repeat(78));
   console.log(`
 Escrow ID:        ${escrowId}
-Stan on-chain:     DISPUTED (sprawdź: ${explorerAddressUrl(chainId, contractAddress)})
-Payload (do wysłania Oracle'owi), zapisany też w pliku:
+On-chain state:   DISPUTED (verify: ${explorerAddressUrl(chainId, contractAddress)})
+Payload (to send to the Oracle), also saved to file:
   ${payloadFilePath}
 
----- KROK A: odpal prawdziwy Python Oracle (PowerShell, Windows) ------------
+---- STEP A: start the Python Oracle (PowerShell, Windows) --------------------
   cd oracle
   .\\venv\\Scripts\\python.exe -m uvicorn main:app --reload --port 8000
 
-  (venv już ma zainstalowane fastapi/uvicorn/web3 — nic nie trzeba doinstalowywać.
-   Wymaga wypełnionego oracle/.env: RPC_URL, CONTRACT_ADDRESS, ORACLE_PRIVATE_KEY
-   — już ustawione — ORAZ OPENAI_API_KEY lub ANTHROPIC_API_KEY, żeby Step 5
-   (LLM) też przeszedł. BRAK klucza LLM w oracle/.env w tej chwili! Bez niego:
-   Steps 1-4 i tak przejdą, Step 5 zwróci czytelny błąd, a escrow bezpiecznie
-   ZOSTAJE w stanie DISPUTED — to jest oczekiwane zero-trust zachowanie, nie
-   bug, ale jeśli chcesz zobaczyć PEŁNY werdykt LLM, dodaj klucz przed tym krokiem.)
+  (venv already has fastapi/uvicorn/web3 — nothing extra to install.
+   Requires a filled oracle/.env: RPC_URL, CONTRACT_ADDRESS, ORACLE_PRIVATE_KEY
+   — already set — AND OPENAI_API_KEY or ANTHROPIC_API_KEY for Step 5 (LLM).
+   NO LLM key in oracle/.env right now? Without it: Steps 1-4 still pass, Step 5
+   returns a clear error, and escrow safely REMAINS DISPUTED — expected zero-trust
+   behavior, not a bug; add a key before this step if you want the full LLM verdict.)
 
----- KROK B: sprawdź, czy Oracle widzi spór (przed wysłaniem payloadu) ------
+---- STEP B: confirm the Oracle sees the dispute (before sending payload) ------
   Invoke-RestMethod -Uri "http://localhost:8000/disputes/${escrowId}/status" -Method Get
 
-  Oczekiwany wynik: "on_chain_state": "DISPUTED" — to jest właśnie to, o co
-  pytałeś: potwierdzenie, że Oracle CZYTA stan bezpośrednio z chaina (nie z
-  cache'u/eventu), niezależnie od tego czy event listener złapał zdarzenie
-  (mógł nie złapać, jeśli Oracle wystartował PO tym skrypcie — to nieistotne,
-  Oracle i tak re-fetchuje escrow on-chain przy każdym żądaniu).
+  Expected: "on_chain_state": "DISPUTED" — proof the Oracle READS state directly
+  from chain (not from cache/events), regardless of whether the event listener
+  caught the event (it may not if Oracle started AFTER this script — irrelevant;
+  Oracle re-fetches escrow on-chain on every request).
 
----- KROK C: wyślij payload do walidacji + rozstrzygnięcia ------------------
-  (wymaga nagłówka X-Oracle-Secret = ORACLE_HTTP_SECRET z oracle/.env)
+---- STEP C: send payload for validation + resolution -------------------------
+  (requires header X-Oracle-Secret = ORACLE_HTTP_SECRET from oracle/.env)
 
   curl.exe -X POST "http://localhost:8000/disputes/${escrowId}/payload" ^
-    -H "X-Oracle-Secret: TWOJ_SEKRET_Z_ENV" ^
+    -H "X-Oracle-Secret: YOUR_SECRET_FROM_ENV" ^
     --data-binary "@${payloadFilePath}"
 
-  (PowerShell — podstaw $secret z oracle/.env):
+  (PowerShell — substitute $secret from oracle/.env):
   $h = @{ "X-Oracle-Secret" = $secret; "Content-Type" = "application/json" }
   Invoke-RestMethod -Uri "http://localhost:8000/disputes/${escrowId}/payload" -Method Post -InFile "${payloadFilePath}" -Headers $h
 
-  To wywołanie: (1) zweryfikuje hash/rozmiar/składnię, (2) jeśli wszystko
-  gra, wyśle payload do LLM po werdykt, (3) wywoła resolveDispute() on-chain
-  z portfela Oracle. Odpowiedź JSON powie Ci werdykt i tx_hash.
+  This call: (1) verifies hash/size/syntax, (2) if all good, sends payload to LLM
+  for verdict, (3) calls resolveDispute() on-chain from the Oracle wallet. JSON
+  response includes verdict and tx_hash.
 
----- KROK D: po rozstrzygnięciu — odbierz środki -----------------------------
-  Escrow trafi w stan RESOLVED. Ktokolwiek (buyer/seller/Ty) może teraz
-  wywołać claimResolved(${escrowId}) na kontrakcie, żeby faktycznie
-  przelać USDC zgodnie z werdyktem.
+---- STEP D: after resolution — claim funds -----------------------------------
+  Escrow moves to RESOLVED. Anyone (buyer/seller/you) can now call
+  claimResolved(${escrowId}) on the contract to transfer USDC per the verdict.
 `);
 }
 
 main()
   .then(() => process.exit(0))
   .catch((error) => {
-    console.error("\n❌ Test ścieżki sporu nie powiódł się:", error.message || error);
+    console.error("\n❌ Dispute path test failed:", error.message || error);
     process.exit(1);
   });
