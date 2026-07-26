@@ -1,0 +1,34 @@
+{
+  "mcpServers": {
+    "blackswan-buyer": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/mcp_server/dist/index.js"
+      ],
+      "cwd": "${workspaceFolder}/mcp_server",
+      "envFile": "${workspaceFolder}/mcp_server/.env.buyer",
+      "env": {
+        "CHAIN_ID": "84532",
+        "CONTRACT_ADDRESS": "0xfB68d3f08F1398d110Bd600F44CFe8Bd63381Fa4",
+        "USDC_ADDRESS": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "ORACLE_BASE_URL": "http://localhost:8000"
+      }
+    },
+    "blackswan-seller": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "${workspaceFolder}/mcp_server/dist/index.js"
+      ],
+      "cwd": "${workspaceFolder}/mcp_server",
+      "envFile": "${workspaceFolder}/mcp_server/.env.seller",
+      "env": {
+        "CHAIN_ID": "84532",
+        "CONTRACT_ADDRESS": "0xfB68d3f08F1398d110Bd600F44CFe8Bd63381Fa4",
+        "USDC_ADDRESS": "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+        "ORACLE_BASE_URL": "http://localhost:8000"
+      }
+    }
+  }
+}

@@ -1,0 +1,96 @@
+# =============================================================================
+# BlackSwanOS — gitignore for public SDK surface
+#
+# Operator stack (oracle/, watcher, Telegram ops) is ignored so a public push
+# does not publish the private AI oracle. If you maintain a PRIVATE full-stack
+# remote and want those files versioned, comment out the "Operator stack" block
+# below (keep the Secrets / DB / venv rules).
+# =============================================================================
+
+# --- Secrets (never commit) ---
+.env
+.env.*
+!.env.example
+!**/.env.example
+!**/.env.*.example
+oracle/.env
+mcp_server/.env
+mcp_server/.env.buyer
+mcp_server/.env.seller
+admin_bot/.env
+
+# --- Operator stack (private / local; not part of public SDK) ---
+/oracle/
+/watcher.js
+/oracle_monitor.js
+/walletConnectService.js
+/lib/
+/docs/MONITORING.md
+/docs/EMERGENCY_RESOLVE_RUNBOOK.md
+
+# Polish personal ops / audit notes (keep local)
+/PRZED_MAINNETEM.md
+/AUDYT_BEZPIECZENSTWA.md
+/AUDYT_ONCHAIN_ENTERPRISE.md
+/SECURITY_AUDIT.md
+
+# Local Cursor MCP config (use .cursor/mcp.json.example in the public tree)
+.cursor/mcp.json
+
+# --- Node ---
+node_modules/
+mcp_server/node_modules/
+mcp_server/dist/
+npm-debug.log*
+yarn-error.log*
+
+# --- Hardhat ---
+artifacts/
+cache/
+coverage/
+coverage.json
+typechain/
+typechain-types/
+
+# Generated / local deploy + drill outputs
+deployment.json
+dispute_test_payload_*.json
+security_payload_*.json
+stress_payload_*.json
+load_payload_*.json
+load_test_results_*.json
+emergency_drill.json
+happy_path_drill.json
+
+# --- Python / venv (if oracle present locally) ---
+venv/
+.venv/
+**/__pycache__/
+*.pyc
+oracle/__pycache__/
+oracle/**/__pycache__/
+oracle/.venv/
+oracle/venv/
+admin_bot/__pycache__/
+admin_bot/**/__pycache__/
+admin_bot/.venv/
+admin_bot/venv/
+
+# Local SQLite state
+oracle/oracle_state.db
+oracle/oracle_state.db-journal
+oracle/oracle_state.db-wal
+oracle/oracle_state.db-shm
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# --- Logs / OS junk ---
+*.log
+backfill_test_node.log
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/

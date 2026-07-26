@@ -1,0 +1,53 @@
+{
+  "name": "blackswanos",
+  "version": "1.0.0",
+  "description": "Trustless M2M escrow for JSON payload trades",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "node:fork": "hardhat node --fork https://mainnet.base.org",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "simulate": "hardhat run simulate.js --network localhost",
+    "watcher": "node watcher.js",
+    "monitor": "node oracle_monitor.js",
+    "monitor:once": "node oracle_monitor.js --once",
+    "db:cleanup": "node scripts/cleanup_oracle_db.js",
+    "simulate:full": "node scripts/orchestrator.js",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network baseSepolia",
+    "economics:sepolia": "hardhat run scripts/update_economics_sepolia.js --network baseSepolia",
+    "reclaim:sepolia": "hardhat run scripts/reclaim_sepolia.js --network baseSepolia",
+    "smoke:sepolia": "hardhat run scripts/sepolia_smoke_test.js --network baseSepolia",
+    "happy:sepolia": "hardhat run scripts/testHappyPathSepolia.js --network baseSepolia",
+    "happy:full": "hardhat run scripts/test_happy_path.js --network baseSepolia",
+    "claim:funds": "hardhat run scripts/claim_funds.js --network baseSepolia",
+    "emergency:setup": "hardhat run scripts/emergency_resolve_sepolia.js --network baseSepolia",
+    "emergency:status": "hardhat run scripts/emergency_resolve_sepolia.js --network baseSepolia",
+    "emergency:resolve": "hardhat run scripts/emergency_resolve_sepolia.js --network baseSepolia",
+    "dispute:sepolia": "hardhat run scripts/sepolia_dispute_test.js --network baseSepolia",
+    "stress:sepolia": "hardhat run scripts/stress_test.js --network baseSepolia",
+    "topup:seller": "hardhat run scripts/topup_seller.js --network baseSepolia",
+    "balance:wallets": "hardhat run scripts/balance_wallets.js --network baseSepolia",
+    "security:sepolia": "hardhat run scripts/security_test.js --network baseSepolia",
+    "security:oracle": "node scripts/test_oracle_security.js",
+    "load:heavy": "hardhat run scripts/load_test_heavy.js --network baseSepolia",
+    "audit:loopholes": "hardhat run scripts/audit_loopholes.js --network hardhat",
+    "attack:economic": "hardhat run scripts/test_economic_attacks.js --network hardhat",
+    "fuzz:contract": "hardhat run scripts/fuzz_blackswanos.js --network hardhat",
+    "audit:onchain": "hardhat run scripts/audit_loopholes.js --network hardhat && hardhat run scripts/test_economic_attacks.js --network hardhat && hardhat run scripts/fuzz_blackswanos.js --network hardhat"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@nomicfoundation/hardhat-verify": "^2.1.3",
+    "dotenv": "^17.4.2",
+    "hardhat": "^2.22.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.1",
+    "@walletconnect/sign-client": "^2.23.10",
+    "qrcode": "^1.5.4"
+  }
+}
