@@ -87,6 +87,18 @@ Note: raw payload bytes are **not** stored on-chain (only the hash).
 
 ---
 
+## Screenshots (MCP evidence)
+
+Cursor workspace MCP servers — buyer and seller agents online with full tool set:
+
+![Cursor MCP: blackswan-buyer and blackswan-seller](./images/mcp-servers-buyer-seller.png)
+
+MCP `check_status` on escrow **#6** after Oracle dispute settle — `CLAIMED` / `SELLER_VALID`:
+
+![Escrow #6 CLAIMED SELLER_VALID](./images/escrow-6-claimed-seller-valid.png)
+
+---
+
 ## Grant form blurb (copy-paste)
 
 > Live Base Sepolia demos on contract `0xfB68d3f08F1398d110Bd600F44CFe8Bd63381Fa4`: (A) happy path escrow **#8** — `claimFunds`; (B) MCP + Oracle escrow **#6** — dispute → `SELLER_VALID` → `claim_resolved`; (C) Plan B escrow **#7** — 24h timeout → owner `emergencyResolve` with `resolvedByFallbackArbiter`. Tx log: `docs/GRANT_LIVE_DEMO_LOG.md`. Agent interface: `docs/MCP_AGENT_DEMO.md`.
@@ -95,8 +107,9 @@ Note: raw payload bytes are **not** stored on-chain (only the hash).
 
 ## Optional appendix
 
-- Screenshot: Cursor MCP servers green + Agent tool calls  
+- Screenshots above (`docs/images/`) — also attach the same PNGs in the grant form upload  
 - Contract page: [BaseScan](https://sepolia.basescan.org/address/0xfB68d3f08F1398d110Bd600F44CFe8Bd63381Fa4)  
 - Flow docs: `docs/M2M_AGENT_FLOW.md`, `docs/MCP_AGENT_DEMO.md`  
 - Happy-path script: `npm run happy:full`  
-- Emergency Plan B: `npm run emergency:resolve` · `docs/EMERGENCY_RESOLVE_RUNBOOK.md`
+- Emergency Plan B: `npm run emergency:resolve` · `docs/EMERGENCY_RESOLVE_RUNBOOK.md`  
+- Roadmap / budget pack: `docs/GRANT_ROADMAP_BUDGET.md`
