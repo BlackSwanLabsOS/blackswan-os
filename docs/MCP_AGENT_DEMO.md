@@ -5,7 +5,7 @@ Canonical M2M interface for Buyer / Seller AI agents on **Base Sepolia**.
 **Contract:** `0xfB68d3f08F1398d110Bd600F44CFe8Bd63381Fa4`  
 **Tools:** `create_escrow` → `seller_lock` → (`raise_dispute`) → `claim_funds` | `claim_resolved` + `check_status`
 
-**Live grant evidence (tx hashes):** [`GRANT_LIVE_DEMO_LOG.md`](./GRANT_LIVE_DEMO_LOG.md) — happy path `#8` (`claimFunds`) + MCP dispute `#6` (`SELLER_VALID`).
+**Live grant evidence (tx hashes):** [`GRANT_LIVE_DEMO_LOG.md`](./GRANT_LIVE_DEMO_LOG.md) — happy path `#8`, MCP dispute `#6`, Plan B emergency `#7`.
 
 ---
 

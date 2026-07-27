@@ -59,6 +59,24 @@ Testnet proof-of-flow for grant reviewers. Not a mainnet audit.
 
 ---
 
+## Primary C — Escrow `#7` (Plan B: owner `emergencyResolve` after 24h)
+
+**Narrative:** Dispute left open on-chain with **no** Oracle payload POST. After `EMERGENCY_TIMEOUT` (24h), contract **owner** calls `emergencyResolve` — verdict + settle in one tx. Flag: `resolvedByFallbackArbiter = true`.
+
+**Script:** `npm run emergency:setup` → wait → `npm run emergency:resolve`
+
+| Step | Action | Result | Tx |
+|------|--------|--------|-----|
+| 1–3 | Setup (create → lock → `raiseDispute` only) | escrow `#7` `DISPUTED` | [`0xfe3fd6be…90b70c`](https://sepolia.basescan.org/tx/0xfe3fd6be6d72a5ea652869ba0d700afa7158fa029604d04aad604ae4e690b70c) |
+| 4 | Wait 24h | timeout unlocked 2026-07-26T22:23:54Z | — |
+| 5 | Owner `emergencyResolve(SELLER_VALID)` | **`CLAIMED`**, fallback arb **true** | [`0x85310bfb…376b33`](https://sepolia.basescan.org/tx/0x85310bfb0eaa61504946f83f121c6717b8ceffd06ef64b7257004e4a15376b33) |
+
+**Final state:** `CLAIMED` / `SELLER_VALID` / `resolvedByFallbackArbiter=true`  
+**payloadHash:** `0xf4a024d721da2320dda78f617db21113fa6bb1a7f1337567d26ae90a9e0487dc`  
+**Owner:** `0x21360A04853b85a8d2E918b73f97C8ccf5939946`
+
+---
+
 ## Secondary — Escrow `#5` (invalid delivery / negative path)
 
 Same MCP stack; non-JSON payload → Oracle **`SELLER_CHEATED`**. Useful as “bad payload loses” evidence.
@@ -71,7 +89,7 @@ Note: raw payload bytes are **not** stored on-chain (only the hash).
 
 ## Grant form blurb (copy-paste)
 
-> Live Base Sepolia demos on contract `0xfB68d3f08F1398d110Bd600F44CFe8Bd63381Fa4`: (A) happy path escrow **#8** — `createEscrow` → `sellerLock` → window → `claimFunds` → `CLAIMED` with no dispute; (B) MCP + Oracle escrow **#6** — dispute → `SELLER_VALID` → `claim_resolved`. Tx log: `docs/GRANT_LIVE_DEMO_LOG.md`. Agent interface: `docs/MCP_AGENT_DEMO.md`.
+> Live Base Sepolia demos on contract `0xfB68d3f08F1398d110Bd600F44CFe8Bd63381Fa4`: (A) happy path escrow **#8** — `claimFunds`; (B) MCP + Oracle escrow **#6** — dispute → `SELLER_VALID` → `claim_resolved`; (C) Plan B escrow **#7** — 24h timeout → owner `emergencyResolve` with `resolvedByFallbackArbiter`. Tx log: `docs/GRANT_LIVE_DEMO_LOG.md`. Agent interface: `docs/MCP_AGENT_DEMO.md`.
 
 ---
 
@@ -80,4 +98,5 @@ Note: raw payload bytes are **not** stored on-chain (only the hash).
 - Screenshot: Cursor MCP servers green + Agent tool calls  
 - Contract page: [BaseScan](https://sepolia.basescan.org/address/0xfB68d3f08F1398d110Bd600F44CFe8Bd63381Fa4)  
 - Flow docs: `docs/M2M_AGENT_FLOW.md`, `docs/MCP_AGENT_DEMO.md`  
-- Happy-path script: `npm run happy:full`
+- Happy-path script: `npm run happy:full`  
+- Emergency Plan B: `npm run emergency:resolve` · `docs/EMERGENCY_RESOLVE_RUNBOOK.md`
