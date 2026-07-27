@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="talentapp:project_verification"
+      content="8ece7faf888ad4ab1446fa933c322b229b33ab5fec2ad8e259b530bec5f8c537dbc64529767c89f9c14352b9676d0d87956dfa9c31c45c"
+    />
+    <meta
+      name="description"
+      content="BlackSwanOS — trustless M2M USDC escrow and MCP tools for autonomous AI agents on Base."
+    />
+    <title>BlackSwanOS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Syne:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              display: ['"Syne"', "sans-serif"],
+              serif: ['"Instrument Serif"', "Georgia", "serif"],
+            },
+            colors: {
+              ink: {
+                950: "#07080a",
+                900: "#0c0e12",
+                800: "#141820",
+                700: "#1c2230",
+              },
+              bone: "#e8e4dc",
+              mist: "#9aa3b2",
+              signal: "#5eead4",
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      html,
+      body {
+        min-height: 100%;
+      }
+      .atmosphere {
+        background-color: #07080a;
+        background-image:
+          radial-gradient(ellipse 90% 60% at 50% -10%, rgba(94, 234, 212, 0.12), transparent 55%),
+          radial-gradient(ellipse 50% 40% at 100% 100%, rgba(232, 228, 220, 0.05), transparent 45%),
+          linear-gradient(180deg, #07080a 0%, #0c0e12 55%, #07080a 100%);
+      }
+      .grain::before {
+        content: "";
+        pointer-events: none;
+        position: fixed;
+        inset: 0;
+        opacity: 0.035;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        z-index: 0;
+      }
+      .rise {
+        animation: rise 0.9s ease-out both;
+      }
+      .rise-delay {
+        animation: rise 0.9s ease-out 0.12s both;
+      }
+      .rise-delay-2 {
+        animation: rise 0.9s ease-out 0.24s both;
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+    </style>
+  </head>
+  <body class="atmosphere grain text-bone antialiased">
+    <main class="relative z-10 flex min-h-screen flex-col">
+      <section
+        class="flex flex-1 flex-col justify-center px-6 py-16 sm:px-10 lg:px-16"
+      >
+        <div class="mx-auto w-full max-w-3xl">
+          <p
+            class="rise font-display text-xs font-semibold uppercase tracking-[0.28em] text-mist"
+          >
+            Base · M2M escrow · MCP
+          </p>
+
+          <h1
+            class="rise-delay mt-6 font-display text-5xl font-semibold tracking-tight text-bone sm:text-7xl"
+          >
+            BlackSwanOS
+          </h1>
+
+          <p
+            class="rise-delay mt-5 max-w-2xl font-serif text-2xl italic leading-snug text-bone/90 sm:text-3xl"
+          >
+            Trustless M2M financial infrastructure for autonomous AI agents on
+            Base.
+          </p>
+
+          <p class="rise-delay-2 mt-8 max-w-2xl text-base leading-relaxed text-mist sm:text-lg">
+            Trustless M2M USDC escrow on Base, with an MCP server so AI agents
+            can create locks, dispute, and claim funds without a custom wallet
+            UI. Agents commit only a payload hash on-chain; an off-chain AI
+            Oracle can resolve disputes, with an owner emergency fallback after
+            24 hours.
+          </p>
+
+          <div class="rise-delay-2 mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <a
+              href="https://github.com/BlackSwanLabsOS/blackswan-os"
+              class="inline-flex items-center justify-center rounded-md bg-bone px-6 py-3 font-display text-sm font-semibold tracking-wide text-ink-950 transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              View on GitHub
+            </a>
+            <a
+              href="https://sepolia.basescan.org/address/0xfB68d3f08F1398d110Bd600F44CFe8Bd63381Fa4"
+              class="inline-flex items-center justify-center rounded-md border border-bone/25 bg-transparent px-6 py-3 font-display text-sm font-semibold tracking-wide text-bone transition hover:border-signal/60 hover:text-signal focus:outline-none focus-visible:ring-2 focus-visible:ring-signal"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Base Sepolia contract
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <footer class="relative z-10 border-t border-white/5 px-6 py-6 sm:px-10">
+        <div
+          class="mx-auto flex max-w-3xl flex-col gap-2 text-xs text-mist/80 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>Open-source SDK · MIT · Base Sepolia PoC</span>
+          <span class="font-mono text-[11px] text-mist/60">
+            0xfB68…1Fa4
+          </span>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>
